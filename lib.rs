@@ -1,16 +1,23 @@
+mod callback;
 pub mod input;
+
+use callback::process_device_event;
+use callback::process_window_event;
+pub use callback::InputEvent;
 use input::Input;
-use winit::{event::Event, event_loop::EventLoop, window::Window};
+use std::time::Duration;
+pub use winit;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 use winit::window::WindowBuilder;
-use std::time::Duration;
+use winit::{event::Event, event_loop::EventLoop, window::Window};
 
 pub trait WindowLoop {
     fn init(&mut self);
     fn update(&mut self, input: &mut Input, dt: Duration);
     fn render(&mut self);
     fn on_close(&mut self);
+    fn input_event(&mut self, event: InputEvent);
 }
 pub fn create(name: &str) -> (Window, EventLoop<()>) {
     let event_loop = winit::event_loop::EventLoop::new();
@@ -39,12 +46,20 @@ pub fn start<T: 'static + WindowLoop>(mut state: T, window: (Window, EventLoop<(
                 is_focused = false;
             }
             _ => {
-                if !input_state.process_window_event(event) {
+                if !input_state.process_window_event(&event) {
                     *control_flow = ControlFlow::Exit
+                }
+                if let Some(event) = process_window_event(event) {
+                    state.input_event(event);
                 }
             }
         },
         Event::DeviceEvent { event, .. } => {
+            if is_focused {
+                if let Some(event) = process_device_event(&event) {
+                    state.input_event(event);
+                }
+            }
             input_state.process_device_event(event, is_focused);
         }
         Event::NewEvents(_) => {}

@@ -85,7 +85,7 @@ impl Input {
             DeviceEvent::Key(_) => {}
         }
     }
-    pub fn process_window_event(&mut self, event: winit::event::WindowEvent) -> bool {
+    pub fn process_window_event(&mut self, event: &winit::event::WindowEvent) -> bool {
         match event {
             WindowEvent::Resized(size) => {
                 self.resized = Some((size.width as i32, size.height as i32));
@@ -97,7 +97,7 @@ impl Input {
             WindowEvent::HoveredFile(_) => {}
             WindowEvent::HoveredFileCancelled => {}
             WindowEvent::ReceivedCharacter(character) => {
-                self.characters.push(character);
+                self.characters.push(*character);
             }
             WindowEvent::Focused(_) => {}
             WindowEvent::KeyboardInput { input, .. } => {
@@ -132,21 +132,21 @@ impl Input {
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 self.mouse_buttons
-                    .insert(button, state == ElementState::Pressed);
+                    .insert(*button, *state == ElementState::Pressed);
                 match state {
                     ElementState::Pressed => {
                         if let Some(was_pressed) = self.last_mouse_buttons.get_mut(&button) {
                             if !*was_pressed {
-                                self.mouse_buttons_pressed.push(button);
+                                self.mouse_buttons_pressed.push(*button);
                             }
                         } else {
-                            self.mouse_buttons_pressed.push(button);
+                            self.mouse_buttons_pressed.push(*button);
                         }
                     }
                     ElementState::Released => {
                         if let Some(was_pressed) = self.last_mouse_buttons.get_mut(&button) {
                             if *was_pressed {
-                                self.mouse_buttons_released.push(button);
+                                self.mouse_buttons_released.push(*button);
                             }
                         }
                     }
