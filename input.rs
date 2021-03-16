@@ -1,21 +1,28 @@
 use std::collections::HashMap;
 pub use winit::event::MouseButton;
-pub use winit::event::VirtualKeyCode;
 use winit::event::{DeviceEvent, ElementState, MouseScrollDelta, WindowEvent};
+pub use winit::event::{ScanCode, VirtualKeyCode};
 
 #[derive(Clone)]
 pub struct Input {
-    keys: HashMap<VirtualKeyCode, bool>,
-    last_keys: HashMap<VirtualKeyCode, bool>,
+    code_keys: HashMap<VirtualKeyCode, bool>,
+    code_last_keys: HashMap<VirtualKeyCode, bool>,
+    code_keys_pressed: Vec<VirtualKeyCode>,
+    code_keys_released: Vec<VirtualKeyCode>,
+
+    keys: HashMap<ScanCode, bool>,
+    last_keys: HashMap<ScanCode, bool>,
+    keys_pressed: Vec<ScanCode>,
+    keys_released: Vec<ScanCode>,
+
     mouse_buttons: HashMap<MouseButton, bool>,
     last_mouse_buttons: HashMap<MouseButton, bool>,
-    keys_pressed: Vec<VirtualKeyCode>,
-    keys_released: Vec<VirtualKeyCode>,
     mouse_buttons_pressed: Vec<MouseButton>,
     mouse_buttons_released: Vec<MouseButton>,
     mouse_diff: (f32, f32),
     mouse_position: (f32, f32),
     mouse_wheel: f32,
+
     resized: Option<(i32, i32)>,
     quit: bool,
     characters: String,
@@ -30,10 +37,16 @@ impl Input {
         Self {
             keys: HashMap::new(),
             last_keys: HashMap::new(),
-            mouse_buttons: HashMap::new(),
-            last_mouse_buttons: HashMap::new(),
             keys_pressed: Vec::new(),
             keys_released: Vec::new(),
+
+            code_keys: HashMap::new(),
+            code_last_keys: HashMap::new(),
+            code_keys_pressed: Vec::new(),
+            code_keys_released: Vec::new(),
+
+            mouse_buttons: HashMap::new(),
+            last_mouse_buttons: HashMap::new(),
             mouse_buttons_pressed: Vec::new(),
             mouse_buttons_released: Vec::new(),
             mouse_diff: (0.0, 0.0),
@@ -48,9 +61,9 @@ impl Input {
         self.mouse_diff = (0.0, 0.0);
         self.mouse_wheel = 0.0;
         self.resized = None;
-        self.last_keys = self.keys.clone();
-        self.keys_pressed.clear();
-        self.keys_released.clear();
+        self.code_last_keys = self.code_keys.clone();
+        self.code_keys_pressed.clear();
+        self.code_keys_released.clear();
         self.last_mouse_buttons = self.mouse_buttons.clone();
         self.mouse_buttons_pressed.clear();
         self.mouse_buttons_released.clear();
@@ -101,20 +114,36 @@ impl Input {
             }
             WindowEvent::Focused(_) => {}
             WindowEvent::KeyboardInput { input, .. } => {
+                self.keys
+                    .insert(input.scancode, input.state == ElementState::Pressed);
+                if input.state == ElementState::Pressed {
+                    if let Some(last) = self.last_keys.get(&input.scancode) {
+                        if !*last {
+                            self.keys_pressed.push(input.scancode);
+                        }
+                    } else {
+                        self.keys_pressed.push(input.scancode);
+                    }
+                } else if let Some(last) = self.last_keys.get(&input.scancode) {
+                    if *last {
+                        self.keys_released.push(input.scancode);
+                    }
+                }
+
                 if let Some(virtual_keycode) = input.virtual_keycode {
-                    self.keys
+                    self.code_keys
                         .insert(virtual_keycode, input.state == ElementState::Pressed);
                     if input.state == ElementState::Pressed {
-                        if let Some(last) = self.last_keys.get(&virtual_keycode) {
+                        if let Some(last) = self.code_last_keys.get(&virtual_keycode) {
                             if !*last {
-                                self.keys_pressed.push(virtual_keycode);
+                                self.code_keys_pressed.push(virtual_keycode);
                             }
                         } else {
-                            self.keys_pressed.push(virtual_keycode);
+                            self.code_keys_pressed.push(virtual_keycode);
                         }
-                    } else if let Some(last) = self.last_keys.get(&virtual_keycode) {
+                    } else if let Some(last) = self.code_last_keys.get(&virtual_keycode) {
                         if *last {
-                            self.keys_released.push(virtual_keycode);
+                            self.code_keys_released.push(virtual_keycode);
                         }
                     }
                 }
@@ -160,18 +189,46 @@ impl Input {
         }
         !self.quit
     }
-    pub fn key_held(&self, key: VirtualKeyCode) -> bool {
-        return if let Some(key) = self.keys.get(&key) {
-            *key
-        } else {
-            false
-        };
+    pub fn key_held<T: Into<Key>>(&self, key: T) -> bool {
+        let k: Key = key.into();
+        match k {
+            Key::Virtual(key) => {
+                if let Some(key) = self.code_keys.get(&key) {
+                    *key
+                } else {
+                    false
+                }
+            }
+            Key::ScanCode(key) => {
+                if let Some(key) = self.keys.get(&key) {
+                    *key
+                } else {
+                    false
+                }
+            }
+        }
     }
-    pub fn key_pressed(&self, key: VirtualKeyCode) -> bool {
-        self.keys_pressed.contains(&key)
+    pub fn key_pressed<T: Into<Key>>(&self, key: T) -> bool {
+        let key: Key = key.into();
+        match key {
+            Key::Virtual(key) => {
+                self.code_keys_pressed.contains(&key)
+            }
+            Key::ScanCode(key) => {
+                self.keys_pressed.contains(&key)
+            }
+        }
     }
-    pub fn key_released(&self, key: VirtualKeyCode) -> bool {
-        self.keys_released.contains(&key)
+    pub fn key_released<T: Into<Key>>(&self, key: T) -> bool {
+        let key: Key = key.into();
+        match key {
+            Key::Virtual(key) => {
+                self.code_keys_released.contains(&key)
+            }
+            Key::ScanCode(key) => {
+                self.keys_released.contains(&key)
+            }
+        }
     }
     pub fn button_pressed(&self, button: MouseButton) -> bool {
         self.mouse_buttons_pressed.contains(&button)
@@ -203,4 +260,21 @@ impl Input {
         self.characters.clear();
         characters
     }
+}
+
+impl From<ScanCode> for Key {
+    fn from(k: ScanCode) -> Self {
+        Self::ScanCode(k)
+    }
+}
+
+impl From<VirtualKeyCode> for Key {
+    fn from(k: VirtualKeyCode) -> Self {
+        Self::Virtual(k)
+    }
+}
+
+pub enum Key {
+    Virtual(VirtualKeyCode),
+    ScanCode(ScanCode),
 }
