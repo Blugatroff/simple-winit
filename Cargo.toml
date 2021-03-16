@@ -1,5 +1,5 @@
 [package]
-name = "simple_winit"
+name = "simple-winit"
 version = "0.1.0"
 authors = ["jasper"]
 edition = "2018"
@@ -8,4 +8,4 @@ edition = "2018"
 path = "./lib.rs"
 
 [dependencies]
-winit = "0.24.0"
+winit = "^0.24.0"
