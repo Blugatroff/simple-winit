@@ -3,6 +3,13 @@ pub use winit::event::MouseButton;
 use winit::event::{DeviceEvent, ElementState, MouseScrollDelta, WindowEvent};
 pub use winit::event::{ScanCode, VirtualKeyCode};
 
+#[derive(Copy, Clone)]
+pub enum CursorGrabAction {
+    None,
+    Grab,
+    Loose,
+}
+
 #[derive(Clone)]
 pub struct Input {
     code_keys: HashMap<VirtualKeyCode, bool>,
@@ -25,6 +32,7 @@ pub struct Input {
 
     resized: Option<(i32, i32)>,
     quit: bool,
+    cursor_action: CursorGrabAction,
     characters: String,
 }
 impl Default for Input {
@@ -53,8 +61,9 @@ impl Input {
             mouse_wheel: 0.0,
             resized: None,
             mouse_position: (0.0, 0.0),
-            quit: false,
             characters: String::new(),
+            quit: false,
+            cursor_action: CursorGrabAction::None,
         }
     }
     pub fn step(&mut self) {
@@ -67,6 +76,7 @@ impl Input {
         self.last_mouse_buttons = self.mouse_buttons.clone();
         self.mouse_buttons_pressed.clear();
         self.mouse_buttons_released.clear();
+        self.cursor_action = CursorGrabAction::None;
     }
     pub fn process_device_event(&mut self, event: winit::event::DeviceEvent, is_focused: bool) {
         match event {
@@ -211,23 +221,15 @@ impl Input {
     pub fn key_pressed<T: Into<Key>>(&self, key: T) -> bool {
         let key: Key = key.into();
         match key {
-            Key::Virtual(key) => {
-                self.code_keys_pressed.contains(&key)
-            }
-            Key::ScanCode(key) => {
-                self.keys_pressed.contains(&key)
-            }
+            Key::Virtual(key) => self.code_keys_pressed.contains(&key),
+            Key::ScanCode(key) => self.keys_pressed.contains(&key),
         }
     }
     pub fn key_released<T: Into<Key>>(&self, key: T) -> bool {
         let key: Key = key.into();
         match key {
-            Key::Virtual(key) => {
-                self.code_keys_released.contains(&key)
-            }
-            Key::ScanCode(key) => {
-                self.keys_released.contains(&key)
-            }
+            Key::Virtual(key) => self.code_keys_released.contains(&key),
+            Key::ScanCode(key) => self.keys_released.contains(&key),
         }
     }
     pub fn button_pressed(&self, button: MouseButton) -> bool {
@@ -259,6 +261,19 @@ impl Input {
         let characters = self.characters.clone();
         self.characters.clear();
         characters
+    }
+    pub fn grab_cursor(&mut self, grab: bool) {
+        self.cursor_action = if grab {
+            CursorGrabAction::Grab
+        } else {
+            CursorGrabAction::Loose
+        }
+    }
+    pub fn cursor_action(&self) -> CursorGrabAction {
+        self.cursor_action
+    }
+    pub fn will_quit(&self) -> bool {
+        self.quit
     }
 }
 
