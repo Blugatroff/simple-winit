@@ -16,7 +16,7 @@ use crate::input::CursorGrabAction;
 pub trait WindowLoop {
     fn init(&mut self);
     fn update(&mut self, input: &mut Input, dt: Duration);
-    fn render(&mut self);
+    fn render(&mut self, window: &Window);
     fn on_close(&mut self);
     fn input_event(&mut self, event: InputEvent);
 }
@@ -78,7 +78,7 @@ pub fn start<T: 'static + WindowLoop>(mut state: T, window: (Window, EventLoop<(
             let dt = last_time.elapsed();
             last_time = std::time::Instant::now();
             state.update(&mut input_state, dt);
-            state.render();
+            state.render(&window);
             match input_state.cursor_action() {
                 CursorGrabAction::None => {}
                 CursorGrabAction::Grab => {

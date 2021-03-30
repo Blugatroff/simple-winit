@@ -248,6 +248,9 @@ impl Input {
     pub fn mouse_diff(&self) -> (f32, f32) {
         self.mouse_diff
     }
+    pub fn mouse_position(&self) -> (f32, f32) {
+        self.mouse_position
+    }
     pub fn wheel(&self) -> f32 {
         self.mouse_wheel
     }
