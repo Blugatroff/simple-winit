@@ -1,6 +1,7 @@
 mod callback;
 pub mod input;
 
+use crate::input::CursorGrabAction;
 use callback::process_device_event;
 use callback::process_window_event;
 pub use callback::InputEvent;
@@ -11,14 +12,14 @@ use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 use winit::window::WindowBuilder;
 use winit::{event::Event, event_loop::EventLoop, window::Window};
-use crate::input::CursorGrabAction;
 
+#[allow(unused_variables)]
 pub trait WindowLoop {
-    fn init(&mut self);
+    fn init(&mut self) {}
     fn update(&mut self, input: &mut Input, dt: Duration);
-    fn render(&mut self, window: &Window);
-    fn on_close(&mut self);
-    fn input_event(&mut self, event: InputEvent);
+    fn render(&mut self);
+    fn on_close(&mut self) {}
+    fn input_event(&mut self, event: InputEvent) {}
 }
 pub fn create(name: &str) -> (Window, EventLoop<()>) {
     let event_loop = winit::event_loop::EventLoop::new();
@@ -38,10 +39,8 @@ pub fn start<T: 'static + WindowLoop>(mut state: T, window: (Window, EventLoop<(
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
             WindowEvent::Focused(true) => {
-                if is_grabbing_cursor {
-                    window.set_cursor_visible(!is_grabbing_cursor);
-                    window.set_cursor_grab(true).ok();
-                }
+                window.set_cursor_visible(!is_grabbing_cursor);
+                window.set_cursor_grab(is_grabbing_cursor).ok();
                 is_focused = true;
             }
             WindowEvent::Focused(false) => {
@@ -78,20 +77,18 @@ pub fn start<T: 'static + WindowLoop>(mut state: T, window: (Window, EventLoop<(
             let dt = last_time.elapsed();
             last_time = std::time::Instant::now();
             state.update(&mut input_state, dt);
-            state.render(&window);
+            state.render();
+
             match input_state.cursor_action() {
                 CursorGrabAction::None => {}
                 CursorGrabAction::Grab => {
                     is_grabbing_cursor = true;
-                    window.set_cursor_visible(false);
-                    window.set_cursor_grab(true).ok();
                 }
                 CursorGrabAction::Loose => {
                     is_grabbing_cursor = false;
-                    window.set_cursor_visible(true);
-                    window.set_cursor_grab(false).ok();
                 }
             }
+
             input_state.step();
         }
         Event::RedrawEventsCleared => {

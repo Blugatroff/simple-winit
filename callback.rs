@@ -1,5 +1,5 @@
 use crate::input::MouseButton;
-use winit::event::{ElementState, MouseScrollDelta, VirtualKeyCode, WindowEvent, DeviceEvent};
+use winit::event::{DeviceEvent, ElementState, MouseScrollDelta, VirtualKeyCode, WindowEvent};
 
 #[derive(Copy, Clone, Debug)]
 pub enum InputEvent {
@@ -8,17 +8,18 @@ pub enum InputEvent {
     MouseWheel((f64, f64)),
     Character(char),
     Key((u32, bool, Option<VirtualKeyCode>)),
+    Axis((u32, f64)),
 }
 
 pub fn process_device_event(event: &winit::event::DeviceEvent) -> Option<InputEvent> {
     match event {
         DeviceEvent::Added => {}
         DeviceEvent::Removed => {}
-        DeviceEvent::MouseMotion { delta } => {
-            return Some(InputEvent::MouseMotion(*delta))
-        }
+        DeviceEvent::MouseMotion { delta } => return Some(InputEvent::MouseMotion(*delta)),
         DeviceEvent::MouseWheel { .. } => {}
-        DeviceEvent::Motion { .. } => {}
+        DeviceEvent::Motion { axis, value } => {
+            return Some(InputEvent::Axis((*axis, *value)))
+        }
         DeviceEvent::Button { .. } => {}
         DeviceEvent::Key(_) => {}
         DeviceEvent::Text { .. } => {}
@@ -50,7 +51,7 @@ pub fn process_window_event(event: winit::event::WindowEvent) -> Option<InputEve
         WindowEvent::CursorEntered { .. } => None,
         WindowEvent::CursorLeft { .. } => None,
         WindowEvent::MouseWheel { delta, .. } => match delta {
-            MouseScrollDelta::LineDelta(_, _) => None,
+            MouseScrollDelta::LineDelta(x, y) => Some(InputEvent::MouseWheel((x as f64, y as f64))),
             MouseScrollDelta::PixelDelta(delta) => Some(InputEvent::MouseWheel((delta.x, delta.y))),
         },
         WindowEvent::MouseInput { state, button, .. } => {
@@ -69,7 +70,7 @@ pub fn process_window_event(event: winit::event::WindowEvent) -> Option<InputEve
             )))
         }
         WindowEvent::TouchpadPressure { .. } => None,
-        WindowEvent::AxisMotion { .. } => None,
+        WindowEvent::AxisMotion { axis, value, .. } => Some(InputEvent::Axis((axis, value))),
         WindowEvent::Touch(_) => None,
         WindowEvent::ScaleFactorChanged { .. } => None,
         WindowEvent::ThemeChanged(_) => None,
